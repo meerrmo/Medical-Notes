@@ -1,68 +1,36 @@
 import streamlit as st
-import openai
-import os
-from google_speech import Speech
-import speech_recognition as sr
-from transformers import pipeline
+from transformers import T5ForConditionalGeneration, T5Tokenizer
 
-# Ensure API key is set up correctly in the environment
-openai.api_key = os.getenv('OPENAI_API_KEY')  # Use environment variable for security
+# Load T5 model and tokenizer (pre-trained model from Hugging Face)
+model_name = "t5-small"  # Small and lightweight for free usage
+model = T5ForConditionalGeneration.from_pretrained(model_name)
+tokenizer = T5Tokenizer.from_pretrained(model_name)
 
-# Initialize the transformer model for summarization
-summarizer = pipeline("summarization")
-
-# Function to transcribe speech to text
-def transcribe_audio():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.write("Listening for speech...")
-        audio = r.listen(source)
+# Function to summarize conversations
+def summarize_conversation(conversation):
     try:
-        st.write("Recognizing speech...")
-        text = r.recognize_google(audio)
-        st.write(f"Recognized text: {text}")
-        return text
-    except sr.UnknownValueError:
-        st.write("Sorry, I could not understand the audio.")
-        return None
-    except sr.RequestError:
-        st.write("Sorry, there was an error with the speech recognition service.")
-        return None
+        # Preprocess input
+        input_text = f"summarize: {conversation}"
+        input_ids = tokenizer.encode(input_text, return_tensors="pt", max_length=512, truncation=True)
 
-# Function to generate medical notes from conversation
-def generate_medical_notes(conversation):
-    prompt = f"Summarize this doctor-patient conversation into medical notes: {conversation}"
-    response = openai.Completion.create(
-        model="text-davinci-003",
-        prompt=prompt,
-        max_tokens=200
-    )
-    return response.choices[0].text.strip()
+        # Generate summary
+        summary_ids = model.generate(input_ids, max_length=150, min_length=30, length_penalty=2.0, num_beams=4, early_stopping=True)
+        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        return summary
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 # Streamlit App Interface
-st.title('AI Medical Note Generator')
-st.write('This app converts doctor-patient interactions into medical notes.')
+st.title("AI Medical Note Generator (Google NLP)")
+st.write("This app converts doctor-patient conversations into structured medical notes using Google's free NLP resources.")
 
-# Option for speech-to-text or text input
-option = st.radio('Select input type:', ['Text', 'Speech'])
+# Input text area
+conversation = st.text_area("Enter the conversation here:")
 
-if option == 'Text':
-    conversation = st.text_area('Enter conversation here:')
-    if st.button('Generate Medical Notes'):
-        if conversation:
-            notes = generate_medical_notes(conversation)
-            st.write("### Medical Notes:")
-            st.write(notes)
-        else:
-            st.write("Please enter a conversation.")
-
-elif option == 'Speech':
-    if st.button('Start Recording'):
-        conversation = transcribe_audio()
-        if conversation:
-            notes = generate_medical_notes(conversation)
-            st.write("### Medical Notes:")
-            st.write(notes)
-
-# To run the app:
-# streamlit run app.py
+if st.button("Generate Medical Notes"):
+    if conversation:
+        notes = summarize_conversation(conversation)
+        st.write("### Medical Notes:")
+        st.write(notes)
+    else:
+        st.write("Please enter a conversation to process.")
