@@ -1,11 +1,12 @@
 import streamlit as st
 import openai
+import os
 from google_speech import Speech
 import speech_recognition as sr
 from transformers import pipeline
 
-# Setup OpenAI API key
-openai.api_key = 'your-openai-api-key'
+# Ensure API key is set up correctly in the environment
+openai.api_key = os.getenv('OPENAI_API_KEY')  # Use environment variable for security
 
 # Initialize the transformer model for summarization
 summarizer = pipeline("summarization")
