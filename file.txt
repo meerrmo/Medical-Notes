@@ -1,5 +1,3 @@
-openai
 streamlit
-google-speech
-speechrecognition
 transformers
+torch
