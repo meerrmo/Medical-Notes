@@ -3,6 +3,8 @@ import streamlit as st
 from transformers import T5ForConditionalGeneration, T5Tokenizer
 from dotenv import load_dotenv
 import os
+import speech_recognition as sr
+from fpdf import FPDF
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -40,6 +42,32 @@ def summarize_conversation(conversation):
     except Exception as e:
         return f"Error: {str(e)}"
 
+# Function to record and transcribe voice input
+def transcribe_audio():
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.write("Say something...")
+        audio = recognizer.listen(source)
+
+    try:
+        st.write("Transcribing...")
+        text = recognizer.recognize_google(audio)
+        return text
+    except sr.UnknownValueError:
+        st.write("Could not understand the audio")
+        return None
+    except sr.RequestError as e:
+        st.write(f"Error with the speech recognition service: {e}")
+        return None
+
+# Function to create a PDF with the summarized notes
+def create_pdf(text, filename="medical_note.pdf"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(0, 10, text)
+    pdf.output(filename)
+
 # Streamlit App Interface
 st.title("AI Medical Note Generator (Google NLP)")
 st.write("This app converts doctor-patient conversations into structured medical notes using Google's free NLP resources.")
@@ -50,7 +78,23 @@ if st.button("Fetch GitHub User Data"):
     st.write("### GitHub User Data:")
     st.write(github_data)
 
-# Input text area for conversation
+# Voice Input
+if st.button("Record Voice"):
+    transcribed_text = transcribe_audio()
+    if transcribed_text:
+        st.write("Transcribed Text: ", transcribed_text)
+
+        # Summarize text
+        summary = summarize_conversation(transcribed_text)
+        st.write("### Summary:")
+        st.write(summary)
+
+        # Export as PDF
+        if st.button("Export as PDF"):
+            create_pdf(summary)
+            st.success("PDF created successfully!")
+
+# Alternatively, Input Text Area for Conversation
 conversation = st.text_area("Enter the conversation here:")
 
 if st.button("Generate Medical Notes"):
@@ -58,5 +102,10 @@ if st.button("Generate Medical Notes"):
         notes = summarize_conversation(conversation)
         st.write("### Medical Notes:")
         st.write(notes)
+        
+        # Export as PDF button
+        if st.button("Export as PDF"):
+            create_pdf(notes)
+            st.success("PDF created successfully!")
     else:
         st.write("Please enter a conversation to process.")
